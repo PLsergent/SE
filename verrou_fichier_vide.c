@@ -1,17 +1,23 @@
 /* verrou_fichier_vide.c */
 
-#include <stdio.h> // fprintf(3), stderr(3), printf(3), scanf(3)
-#include <stdlib.h> // exit(3)
+#include <stdio.h> // fprintf(3), fgets(3), fgetc(3)
+#include <string.h> // strch(3), strtol(3)
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
-#define NB_ELEMENTS 30
+#define NB_ELEMENTS 32 // 30 caract�res + \n + \0
 
 typedef struct
 {
    char nom[NB_ELEMENTS];
    char prenom[NB_ELEMENTS];
-   int age;
+   int age; // -2147483648 <= int cod� sur 4 octets <= 2147483647
 }Identite;
 
+void saisie_chaine(char*,int);
+int saisie_entier();
 void saisie_personne(Identite*);
 Identite lecture_personne(int);
 void affichage(char*);
@@ -27,19 +33,18 @@ int main(int argn,char** argv)
 
    if(argn<2)
    {
-      fprintf(stderr,"Usage:%s nom_fichier\n",argv[0]);
+      fprintf(stderr,"usage : %s nom_fichier\n",argv[0]);
       return 1;
    }
 
    do
    {
-      printf("0-Quitter\n1-Affichage de l'ensemble des personnes\n2-Affichage d'une personne\n3-Ajout d'une personne\n4-Modification d'une personne\n");
-      printf("Choix: ");
-      scanf("%d",&choix);
+      fprintf(stdout,"0-quitter\n1-affichage de l'ensemble des personnes\n2-affichage d'une personne\n3-ajout d'une personne\n4-modification d'une personne\nchoix : ");
+      choix=saisie_entier();
 
       switch(choix)
       {
-         case 0: printf("fin du programme\n");
+         case 0: fprintf(stdout,"fin du programme\n");
                  break;
          case 1: affichage(argv[1]);
                  break;
@@ -57,75 +62,138 @@ int main(int argn,char** argv)
    return 0;
 }
 
-/* proc?dure qui demande la saisie au clavier de l'identit? d'une personne */
-void saisie_personne(Identite* personne)
+/* proc�dure qui contr�le la saisie au clavier d'une cha�ne de caract�res */
+void saisie_chaine(char* chaine,int taille)
 {
-   printf("nom de famille (trente caracteres au maximum) : ");
-   scanf("%s",personne->nom);
-   printf("prenom         (trente caracteres au maximum) : ");
-   scanf("%s",personne->prenom);
-   do
-   {
-      printf("age                                           : ");
-      scanf("%d",&personne->age);
-   }while(personne->age<0 || personne->age>150);
+   char* position_entree=NULL;
+   int c;
+
+   fgets(chaine,taille,stdin);
+   position_entree=strchr(chaine,'\n');
+   if(position_entree!=NULL)
+      *position_entree='\0'; // on remplace \n par \0
+   else
+      while((c=fgetc(stdin))!='\n' && c!=EOF);
 }
 
-/* fonction qui a en param?tre un descripteur de fichier
- * et qui renvoie une variable de type Identite, lue dans le fichier si elle existe, sinon la variable a un age ?gal a -1.
+/* fonction qui renvoie un entier converti � partir d'une cha�ne de caract�res saisie au clavier */
+int saisie_entier()
+{
+   char chaine[12]; // 10 caract�res + \n + \0
+   char* p_chaine;
+   int entier;
+
+   do
+   {
+      saisie_chaine(chaine,sizeof(chaine));
+      entier=(int)strtol(chaine,&p_chaine,10); // conversion d'une chaine en long, en base 10
+                                // pour stocker l'adresse du premier caract�re qui n'est pas un nombre
+   }while(p_chaine==chaine);
+   return entier;
+}
+
+/* proc�dure qui demande la saisie au clavier de l'identit� d'une personne */
+void saisie_personne(Identite* personne)
+{
+   fprintf(stdout,"nom de famille (trente caracteres au maximum) : ");
+   saisie_chaine(personne->nom,sizeof(personne->nom));
+   fprintf(stdout,"prenom         (trente caracteres au maximum) : ");
+   saisie_chaine(personne->prenom,sizeof(personne->prenom));
+   fprintf(stdout,"age                                           : ");
+   do
+      personne->age=saisie_entier();
+   while(personne->age<0);
+}
+
+/* fonction qui a en param�tre un descripteur de fichier
+ * et qui renvoie une variable de type Identite, lue dans le fichier si elle existe, sinon la variable a un age �gal a -1.
  */
-/* La fonction lecture_personne utilise l'appel syst?me read(2). */
+/* La fonction lecture_personne utilise l'appel syst�me read(2). */
 Identite lecture_personne(int fd)
 {
    Identite personne;
-   int nb_car_lu;
+   int nb_car;
+   nb_car = read(fd, &personne, sizeof(personne));
+   if (nb_car == 0){
+        personne.age = -1;
+   }else{
+        if (nb_car != sizeof(Identite)){
+            perror("erreur lecture");
+        }
+   }
+   return personne;
 }
 
-/* proc?dure qui a en param?tre un nom de fichier
- * et qui affiche l'identit? de l'ensemble des personnes contenues dans le fichier
+/* proc�dure qui a en param�tre un nom de fichier
+ * et qui affiche l'identit� de l'ensemble des personnes contenues dans le fichier
  */
-/* La proc?dure affichage utilise la fonction lecture_personne et les appels syst?me open(2) et close(2). */
+/* La proc�dure affichage utilise la fonction lecture_personne et les appels syst�me open(2) et close(2). */
 void affichage(char* filename)
 {
    Identite personne;
    int fd;
-
+   fd = open(filename, O_RDONLY);
+   if (fd > 0){
+     while(((personne = lecture_personne(fd)).age != -1)) {
+       fprintf(stdout, "nom: %s prenom: %s age: %d\n", personne.nom, personne.prenom, personne.age);
+       //write(1, personne.nom, sizeof(personne.nom));
+       //write(1, personne.prenom, sizeof(personne.prenom));
+       //write(1, (char*)personne.age, sizeof((char*)personne.age));
+     }
+     close(fd);
+   }
+   else{
+     perror("erreur d'ouverture en lecture");
+   }
 }
 
-/* proc?dure qui a en param?tre un nom de fichier,
- * qui demande la saisie au clavier du num?ro d'une personne (num?rot?e ? partir de 1)
- * puis qui affiche l'identit? de cette personne
+/* procèdure qui a en param�tre un nom de fichier,
+ * qui demande la saisie au clavier du num�ro d'une personne (num�rot�e � partir de 1)
+ * puis qui affiche l'identit� de cette personne
  */
-/* La proc?dure affichage_personne utilise la fonction lecture_personne et les appels syst?me open(2) et close(2). */
+/* La proc�dure affichage_personne utilise la fonction lecture_personne et les appels syst�me open(2) et close(2). */
 void affichage_personne(char* filename)
 {
    Identite personne;
    int num_personne,i,fd;
 }
 
-/* proc?dure qui a en param?tre un nom de fichier
- * et qui ajoute l'identit? d'une personne en fin de fichier
+/* proc�dure qui a en param�tre un nom de fichier
+ * et qui ajoute l'identit� d'une personne en fin de fichier
  */
-/* La proc?dure ajout_personne utilise la proc?dure saisie_personne et les appels syst?me open(2), write(2) et close(2). */
+/* La proc�dure ajout_personne utilise la proc�dure saisie_personne et les appels syst�me open(2), write(2) et close(2). */
 void ajout_personne(char* filename)
 {
    Identite personne;
    int nb_car_ecrit,fd;
+   fd = open(filename, O_CREAT| O_WRONLY| O_APPEND,00600);
+   if (fd > 0){
+      saisie_personne(&personne);
+      if (personne.age != -1){
+        nb_car_ecrit = write(fd,&personne,sizeof(Identite));
+        if (nb_car_ecrit != sizeof(personne)){
+          perror("erreur ecriture");
+          close(fd);
+        }
+      }
+    }else{
+      perror("erreur ouverture");
+    }
 }
 
-/* proc?dure qui a en param?tre un nom de fichier
- * et qui modifie toute l'identit? d'une personne dans le fichier
+/* proc�dure qui a en param�tre un nom de fichier
+ * et qui modifie toute l'identit� d'une personne dans le fichier
  */
-/* La proc?dure modification_personne utilise la fonction lecture_personne, la proc?dure saisie_personne et les appels syst?me open(2), write(2) et close(2). */
+/* La proc�dure modification_personne utilise la fonction lecture_personne, la proc�dure saisie_personne et les appels syst�me open(2), write(2) et close(2). */
 void modification_personne(char* filename)
 {
    Identite personne;
    int num_personne,i,nb_car_ecrit,fd;
 }
 
-/* fonction qui a en param?tre un descripteur de fichier,
+/* fonction qui a en param�tre un descripteur de fichier,
  * qui verrouille le fichier en utilisant la fonction lockf(3)
- * et qui renvoie la valeur 1 si un verrou a ?t? pos?, 0 sinon
+ * et qui renvoie la valeur 1 si un verrou a �t� pos�, 0 sinon
  * variante=1 : verrouillage bloquant
  * variante=2 : verrouillage non bloquant
  */
@@ -133,7 +201,7 @@ int verrouillage(int fd, int offset, int variante)
 {
 }
 
-/* proc?dure qui a en param?tre un descripteur de fichier
+/* proc�dure qui a en param�tre un descripteur de fichier
  * et qui deverrouille un fichier en utilisant la fonction lockf(3)
  */
 void deverrouillage(int fd, int offset)
