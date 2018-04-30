@@ -39,7 +39,7 @@ int main(int argn,char** argv)
 
    do
    {
-      fprintf(stdout,"0-quitter\n1-affichage de l'ensemble des personnes\n2-affichage d'une personne\n3-ajout d'une personne\n4-modification d'une personne\nchoix : ");
+      fprintf(stdout,"=======================\n0-quitter\n1-affichage de l'ensemble des personnes\n2-affichage d'une personne\n3-ajout d'une personne\n4-modification d'une personne\n=======================\nchoix :");
       choix=saisie_entier();
 
       switch(choix)
@@ -155,7 +155,25 @@ void affichage(char* filename)
 void affichage_personne(char* filename)
 {
    Identite personne;
-   int num_personne,i,fd;
+   int num_personne,fd = open(filename , O_RDONLY);
+
+   if (fd>0){
+     do{
+       printf("Veuillez saisir le numero de la personne à afficher: ");
+       num_personne=saisie_entier();
+     }while(num_personne<1);
+
+     lseek(fd,(num_personne -1) * sizeof(Identite), SEEK_SET);
+
+     if ((personne = lecture_personne(fd)).age!=-1){
+       fprintf(stdout, "nom: %s prenom: %s age: %d\n", personne.nom, personne.prenom, personne.age);
+     }else{
+       fprintf(stdout, "impossible d'afficher la personne: %d\n", num_personne);
+     }
+     close(fd);
+   }else{
+     perror("Erreur d'ouverture\n");
+   }
 }
 
 /* proc�dure qui a en param�tre un nom de fichier
@@ -189,6 +207,32 @@ void modification_personne(char* filename)
 {
    Identite personne;
    int num_personne,i,nb_car_ecrit,fd;
+   fd = open(filename, O_RDWR);
+   if(fd > 0){
+     do{
+       printf("Veuillez saisir le numero de la personne à modifier: ");
+       num_personne=saisie_entier();
+     }while(num_personne<1);
+
+     lseek(fd,(num_personne -1) * sizeof(Identite), SEEK_SET);
+
+     do{
+       fprintf(stdout, "Veuillez saisir le type de verrouillage");
+       i = saisie_entier();
+     }while(i<1 || i>2);
+
+     if(verrouillage(fd, sizeof(Identite),i)){
+       saisie_personne(&personne);
+       nb_car_ecrit = write(fd, &personne, sizeof(Identite));
+       if (nb_car_ecrit != sizeof(Identite)){
+         perror("erreur de l'appel systeme write(2)");
+       }
+       deverrouillage(fd, -sizeof(Identite));
+     }
+     close(fd);
+   }else{
+     perror("erreur ouverture en lecture et en écriture");
+   }
 }
 
 /* fonction qui a en param�tre un descripteur de fichier,
@@ -199,6 +243,21 @@ void modification_personne(char* filename)
  */
 int verrouillage(int fd, int offset, int variante)
 {
+  if(variante == 1){
+    if(lockf(fd, F_LOCK, offset)== -1){
+      perror("erreur de la fonction lock");
+    }
+  }
+
+  if (variante == 2){
+    if (lockf(fd, F_TLOCK, offset)== -1){
+      perror("erreur de la fonction lock");
+    }else{
+    fprintf(stdout,"zone verrouille et pas de pose de nouveau verrou\n");
+    return 0;
+    }
+  }
+  return 1;
 }
 
 /* proc�dure qui a en param�tre un descripteur de fichier
@@ -206,4 +265,7 @@ int verrouillage(int fd, int offset, int variante)
  */
 void deverrouillage(int fd, int offset)
 {
+  if (lockf(fd, F_ULOCK, offset)== -1){
+    perror("erreur de la fonction unlock")
+  }
 }
