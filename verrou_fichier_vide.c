@@ -188,7 +188,7 @@ void ajout_personne(char* filename)
    if (fd > 0){
       saisie_personne(&personne);
       if (personne.age != -1){
-        nb_car_ecrit = write(fd,&personne,sizeof(Identite));
+        nb_car_ecrit = write(fd, &personne, sizeof(Identite));
         if (nb_car_ecrit != sizeof(personne)){
           perror("erreur ecriture");
           close(fd);
@@ -206,7 +206,7 @@ void ajout_personne(char* filename)
 void modification_personne(char* filename)
 {
    Identite personne;
-   int num_personne,i,nb_car_ecrit,fd;
+   int num_personne, i, nb_car_ecrit,fd;
    fd = open(filename, O_RDWR);
    if(fd > 0){
      do{
@@ -217,7 +217,7 @@ void modification_personne(char* filename)
      lseek(fd,(num_personne -1) * sizeof(Identite), SEEK_SET);
 
      do{
-       fprintf(stdout, "Veuillez saisir le type de verrouillage");
+       fprintf(stdout, "Veuillez saisir le type de verrouillage : ");
        i = saisie_entier();
      }while(i<1 || i>2);
 
@@ -266,6 +266,6 @@ int verrouillage(int fd, int offset, int variante)
 void deverrouillage(int fd, int offset)
 {
   if (lockf(fd, F_ULOCK, offset)== -1){
-    perror("erreur de la fonction unlock")
+    perror("erreur de la fonction unlock");
   }
 }
