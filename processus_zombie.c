@@ -8,7 +8,7 @@
 int main(void)
 {
    pid_t pid; // Process ID (PID) : identifiant de processus unique
-   int etat, i;
+   int i;
 
    // génération de processus
    for(i=0; i<3; i++)
@@ -25,17 +25,13 @@ int main(void)
             break;
          default: // code exécuté par le processus parent
             printf("Je suis un processus parent. Mon PID est %d et i=%d. PID du processus enfant cree : %d.\n", getpid(), i, pid);
+            sleep(15);
       }
    }
 
    // fin des processus
    // Un processus parent ne peut pas se terminer si un de ses processus enfant est encore en cours d'exécution.
-   pid = wait(&etat); // L'appel système wait(2) bloque un processus parent jusqu'à ce qu'un processus enfant se termine puis retourne le PID d'un processus enfant qui s'est terminé ou -1 en cas d'échec.
-   while (pid > 0)
-   {
-      printf("\t\tJe suis le processus %d. Le processus %d a fini de s'executer.\n", getpid(), pid);
-      pid = wait(&etat);
-   }
+   printf("\t\tJe suis le processus %d. Le processus %d a fini de s'executer.\n", getpid(), pid);
 
    return 0;
 }
