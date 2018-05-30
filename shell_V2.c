@@ -32,9 +32,9 @@ int main(void){
               fprintf(stdout, "Error : unknow command\n");
               return 0;
 
-          wait (&etat);
             }
           }
+          wait (&etat);
         }
       }
     }
